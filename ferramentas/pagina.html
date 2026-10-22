@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>MOCI nas Ocorrências</title>
+<style>
+:root{ --night:#0C1430; --paper:#F3F1EC; --mist:#B9C1DC; --gold:#E8B302; color-scheme:dark; }
+body{ margin:0; min-height:100vh; display:grid; place-items:center; background:var(--night); color:var(--paper);
+  font:18px 'Segoe UI', Roboto, Arial, sans-serif; padding-block:24px; padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); box-sizing:border-box; }
+main{ max-width:540px; text-align:center; }
+h1{ font:600 28px 'Arial Narrow', Arial, sans-serif; letter-spacing:.08em; text-transform:uppercase; margin:0 0 6px; }
+.org{ color:var(--gold); font-size:13px; letter-spacing:.18em; text-transform:uppercase; margin:0 0 18px; }
+p{ color:var(--mist); line-height:1.5; margin:0; }
+</style>
+</head>
+<body>
+<main>
+  <p class="org">CBMPE · CAT Sertão · Sistema MOCI</p>
+  <h1>MOCI nas Ocorrências</h1>
+  <p id="msg">Abrindo a apresentação...</p>
+</main>
+<!-- Apresentação cifrada (AES-256-GCM). A chave vem só no link completo, depois do "#". -->
+<script id="dados" type="application/octet-stream">{{DADOS}}</script>
+<script>
+(async function () {
+  var msg = document.getElementById('msg');
+  function falha() { msg.textContent = 'Esta apresentação abre só pelo link completo, com a chave de acesso no final. Peça o link a quem a compartilhou com você.'; }
+  function bytes(b64) { b64 = b64.replace(/-/g, '+').replace(/_/g, '/'); while (b64.length % 4) b64 += '='; return Uint8Array.from(atob(b64), function (c) { return c.charCodeAt(0); }); }
+  var chave = location.hash.slice(1);
+  // Guarda a chave na aba para recarregar a página sem ela aparecer na barra de endereço.
+  try { if (chave) sessionStorage.setItem('moci-apresentacao-chave', chave); else chave = sessionStorage.getItem('moci-apresentacao-chave') || ''; } catch (e) { /* sem armazenamento */ }
+  if (!chave || !(window.crypto && crypto.subtle)) { falha(); return; }
+  try {
+    var dados = bytes(document.getElementById('dados').textContent.trim());
+    var k = await crypto.subtle.importKey('raw', bytes(chave), 'AES-GCM', false, ['decrypt']);
+    var html = new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: dados.slice(0, 12) }, k, dados.slice(12)));
+    history.replaceState(null, '', location.pathname);
+    document.open(); document.write(html); document.close();
+  } catch (e) { falha(); }
+})();
+</script>
+</body>
+</html>
