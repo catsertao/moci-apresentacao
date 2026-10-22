@@ -28,17 +28,25 @@ p{ color:var(--mist); line-height:1.5; margin:0; }
   var msg = document.getElementById('msg');
   function falha() { msg.textContent = 'Esta apresentação abre só pelo link completo, com a chave de acesso no final. Peça o link a quem a compartilhou com você.'; }
   function bytes(b64) { b64 = b64.replace(/-/g, '+').replace(/_/g, '/'); while (b64.length % 4) b64 += '='; return Uint8Array.from(atob(b64), function (c) { return c.charCodeAt(0); }); }
+  // Chave: do link completo (#chave) ou, sem ela, a que este navegador guardou ao abrir o link
+  // completo antes. O MOCI (mesma origem, catsertao.github.io) usa essa mesma chave guardada para
+  // o botão do menu "Apresentações do MOCI" abrir direto, sem a chave no código público.
+  var CHAVE = 'moci-apresentacao-chave';
   var chave = location.hash.slice(1);
-  // Guarda a chave na aba para recarregar a página sem ela aparecer na barra de endereço.
-  try { if (chave) sessionStorage.setItem('moci-apresentacao-chave', chave); else chave = sessionStorage.getItem('moci-apresentacao-chave') || ''; } catch (e) { /* sem armazenamento */ }
+  if (!chave) { try { chave = localStorage.getItem(CHAVE) || ''; } catch (e) { chave = ''; } }
   if (!chave || !(window.crypto && crypto.subtle)) { falha(); return; }
   try {
     var dados = bytes(document.getElementById('dados').textContent.trim());
     var k = await crypto.subtle.importKey('raw', bytes(chave), 'AES-GCM', false, ['decrypt']);
     var html = new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: dados.slice(0, 12) }, k, dados.slice(12)));
+    try { localStorage.setItem(CHAVE, chave); } catch (e) { /* sem armazenamento: vale só o link completo */ }
     history.replaceState(null, '', location.pathname);
     document.open(); document.write(html); document.close();
-  } catch (e) { falha(); }
+  } catch (e) {
+    // Chave guardada que não serve mais (ex.: depois de trocar a chave): descarta.
+    if (!location.hash) { try { localStorage.removeItem(CHAVE); } catch (e2) { /* idem */ } }
+    falha();
+  }
 })();
 </script>
 </body>
